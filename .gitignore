@@ -55,3 +55,25 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Fortran files
+*.o
+*.mod
+
+# GeoClaw files
+*.data
+.output
+.data
+.plots
+xclaw
+xgeoclaw
+xamr
+*.html
+_output/
+_plots/
+*.asc
+*.tt3
+*.tt1
+*.xyz
+scratch/*
+!scratch/README.md
