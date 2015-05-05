@@ -7,6 +7,10 @@ Setup a run for a simple hurricane but with multiple layers.
 
 import numpy as numpy
 
+import clawpack.clawutil.data as data
+import clawpack.geoclaw.multilayer.data as ml_data
+import clawpack.geoclaw.topotools as topotools
+
 # Ramp up constants
 RAMP_UP_TIME = 12 * 60**2
 
@@ -30,12 +34,15 @@ def setrun(claw_pkg='geoclaw'):
     num_dim = 2
     rundata = data.ClawRunData(claw_pkg, num_dim)
 
+    # Add multi-layer data object to rundata and set its attributes
+    rundata.add_data(ml_data.MultilayerData(), 'multilayer_data')
+    set_multilayer(rundata)
+
     #------------------------------------------------------------------
     # Standard Clawpack parameters to be written to claw.data:
     #   (or to amr2ez.data for AMR)
     #------------------------------------------------------------------
     clawdata = rundata.clawdata  # initialized when rundata instantiated
-
 
     # Set single grid parameters first.
     # See below for AMR parameters.
@@ -71,7 +78,7 @@ def setrun(claw_pkg='geoclaw'):
 
     # Number of auxiliary variables in the aux array (initialized in setaux)
     clawdata.num_aux = 4 + rundata.multilayer_data.num_layers
-    if rundata.stormdata.storm_type > 0:
+    if rundata.surge_data.storm_type > 0:
         clawdata.num_aux += 3
 
     # Index of aux array corresponding to capacity function, if there is one:
@@ -111,7 +118,7 @@ def setrun(claw_pkg='geoclaw'):
     if clawdata.output_style==1:
         # Output nout frames at equally spaced times up to tfinal:
         clawdata.num_output_times = int(num_hours / step) + int(numpy.ceil(RAMP_UP_TIME / (step * 60**2)))
-        clawdata.tfinal = num_hous * 60.0**2
+        clawdata.tfinal = num_hours * 60.0**2
         clawdata.output_t0 = True  # output at initial (or restart) time?
 
     elif clawdata.output_style == 2:
@@ -125,7 +132,7 @@ def setrun(claw_pkg='geoclaw'):
         clawdata.output_t0 = True
         
 
-    clawdata.output_format = 'binary'      # 'ascii' or 'binary' 
+    clawdata.output_format = 'ascii'      # 'ascii' or 'binary' 
 
     clawdata.output_q_components = 'all'   # need all
     clawdata.output_aux_components = 'all'  # eta=h+B is in q
@@ -334,7 +341,7 @@ def setrun(claw_pkg='geoclaw'):
         x = 455e3 
         # Start 25 km inside of primary domain
         y = 550e3 / (num_gauges + 1) * (n + 1) + -275e3
-        rundata.gaugedate.gauges.append([n + 1, x, y, 0.0, 1e10])
+        rundata.gaugedata.gauges.append([n + 1, x, y, 0.0, 1e10])
 
     return rundata
     # end of function setrun
@@ -387,21 +394,21 @@ def setgeo(rundata):
     # for moving topography, append lines of the form :   (<= 1 allowed for now!)
     #   [topotype, minlevel,maxlevel,fname]
 
+    # ======================
+    #  Storm Surge Settings
+    # ======================
+
+    rundata.stormdata.storm_type = 1
 
     return rundata
     # end of function setgeo
     # ----------------------
 
-def set_friction(rundata):
-
-    data = rundata.frictiondata
-
-    # Variable friction
-    data.variable_friction = False
-
 
 def set_multilayer(rundata):
-
+    # ======================
+    #  Multi-layer settings
+    # ======================
     data = rundata.multilayer_data
 
     # Physics parameters
@@ -417,38 +424,36 @@ def set_multilayer(rundata):
     data.wave_tolerance = [0.1, 0.5]
     data.dry_limit = True
 
-
-def set_storm(rundata):
-
-    # No storm
-    rundata.stormdata.storm_type = 1
+    return rundata
 
 
 def write_topo_file(run_data, out_file, **kwargs):
 
-
     # Make topography
-    topo_func = lambda x, y: bathy_step(x, y, **kwargs)
-    topo = tt.Topography(topo_func=topo_func)
+    topo = topotools.Topography()
     topo.x = numpy.linspace(run_data.clawdata.lower[0], 
                             run_data.clawdata.upper[0], 
                             run_data.clawdata.num_cells[0] + 8)
     topo.y = numpy.linspace(run_data.clawdata.lower[1], 
                             run_data.clawdata.upper[1], 
                             run_data.clawdata.num_cells[1] + 8)
+
+    # Create bathymetry profile
+    beach_slope = 0.05
+    basin_depth = -3000
+    shelf_depth = -200
+    x0 = 350e3
+    x1 = 450e3
+    x2 = 480e3
+    topo_profile = [(run_data.clawdata.lower[0], basin_depth),
+                    (x0, basin_depth), (x1, shelf_depth), (x2, shelf_depth),
+                    (run_data.clawdata.upper[0], 
+                            beach_slope * (run_data.clawdata.upper[0] - x2) 
+                            + shelf_depth)]
+    topo.topo_func = topotools.create_topo_func(topo_profile)
     topo.write(out_file)
 
-    # Write out simple bathy geometry file for communication to the plotting
-    with open("./bathy_geometry.data", 'w') as bathy_geometry_file:
-        if kwargs.has_key("location"):
-            location = kwargs['location']
-        else:
-            location = 0.15
-        if kwargs.has_key("angle"):
-            angle = kwargs['angle']
-        else:
-            angle = 0.0
-        bathy_geometry_file.write("%s\n%s" % (location, angle) )
+    return topo
 
 
 if __name__ == '__main__':
@@ -461,4 +466,7 @@ if __name__ == '__main__':
 
     rundata.write()
 
-    write_topo_file(rundata, 'topo.tt2')
+    topo = write_topo_file(rundata, 'topo.tt2')
+    # topo.plot()
+    # import matplotlib.pyplot as plt
+    # plt.show()
