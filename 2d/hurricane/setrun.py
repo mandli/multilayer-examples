@@ -343,6 +343,9 @@ def setrun(claw_pkg='geoclaw'):
         y = 550e3 / (num_gauges + 1) * (n + 1) + -275e3
         rundata.gaugedata.gauges.append([n + 1, x, y, 0.0, 1e10])
 
+    # Set GeoClaw specific settings
+    rundata = setgeo(rundata)
+
     return rundata
     # end of function setrun
     # ----------------------
@@ -387,7 +390,7 @@ def setgeo(rundata):
     topo_data = rundata.topo_data
     # for topography, append lines of the form
     #    [topotype, minlevel, maxlevel, t1, t2, fname]
-    topo_data.topofiles.append([1, 1, 5, -RAMP_UP_TIME, 1e10, 'topo.tt2'])
+    topo_data.topofiles.append([2, 1, 5, -RAMP_UP_TIME, 1e10, 'topo.tt2'])
     
     # == setdtopo.data values ==
     dtopo_data = rundata.dtopo_data
@@ -398,7 +401,7 @@ def setgeo(rundata):
     #  Storm Surge Settings
     # ======================
 
-    rundata.stormdata.storm_type = 1
+    rundata.surge_data.storm_type = 1
 
     return rundata
     # end of function setgeo
