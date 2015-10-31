@@ -20,15 +20,19 @@ def set_riemann_init_condition(state,jump_location,q_left,q_right):
                        (x >= jump_location) * q_right[m] * np.ones((mx))
     
 
-def set_quiescent_init_condition(state):
+def set_quiescent_init_condition(state, single_layer=False):
     """Set a quiescent (stationary) initial condition
     
     This assumes that you have already set the h hat values and the densities.
     """
     state.q[0,:] = state.aux[h_hat_index[0],:] * state.problem_data['rho'][0]
     state.q[1,:] = np.zeros((state.grid.dimensions[0].num_cells))
-    state.q[2,:] = state.aux[h_hat_index[1],:] * state.problem_data['rho'][1]
-    state.q[3,:] = np.zeros((state.grid.dimensions[0].num_cells))
+    if single_layer:
+        state.q[2,:] = np.zeros((state.grid.dimensions[0].num_cells))
+        state.q[3,:] = np.zeros((state.grid.dimensions[0].num_cells))
+    else:
+        state.q[2,:] = state.aux[h_hat_index[1],:] * state.problem_data['rho'][1]
+        state.q[3,:] = np.zeros((state.grid.dimensions[0].num_cells))
 
     
 
