@@ -11,6 +11,8 @@ time step.
 
 import numpy as np
 
+import clawpack.pyclaw.classic as classic
+
 from aux import set_no_wind,kappa_index
 
 class NegativeDepthError(Exception):
@@ -108,7 +110,7 @@ def friction_source(solver,state,dt,TOLERANCE=1e-30):
     r""""""
 
     if state.problem_data['manning'] != 0.0:
-        if isinstance(solver, ClawSolver):
+        if isinstance(solver, classic.solver.ClawSolver1D):
             manning = state.problem_data['manning']
             g = state.problem_data['g']
             rho = state.problem_data['rho']

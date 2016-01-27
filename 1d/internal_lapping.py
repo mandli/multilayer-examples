@@ -34,7 +34,7 @@ def internal_lapping(num_cells,eigen_method,**kargs):
     # = Create Solver =
     # =================
     if kargs.get('solver_type','classic') == 'classic':
-        solver = pyclaw.ClawSolver1D()
+        solver = pyclaw.ClawSolver1D(riemann_solver=layered_shallow_water_1D)
     else:
         raise NotImplementedError('Classic is currently the only supported solver.')
         
@@ -54,22 +54,19 @@ def internal_lapping(num_cells,eigen_method,**kargs):
     solver.aux_bc_lower[0] = 1
     solver.aux_bc_upper[0] = 1
 
-    # Set the Riemann solver
-    solver.rp = layered_shallow_water_1D
-
     # Set the before step functioning including the wind forcing
-    solver.before_step = lambda solver,solution:ml.step.before_step(solver,solution)
+    solver.before_step = lambda solver, solution:ml.step.before_step(
+                                                               solver, solution)
                                             
     # Use simple friction source term
     solver.step_source = ml.step.friction_source
-    
     
     # ============================
     # = Create Initial Condition =
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension('x',0.0,1.0,num_cells)
+    x = pyclaw.Dimension(0.0, 1.0, num_cells)
     domain = pyclaw.Domain([x])
     state = pyclaw.State(domain,2*num_layers,3+num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0
