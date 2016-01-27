@@ -24,7 +24,8 @@ def wave_family(num_cells,eigen_method,wave_family,dry_state=True,**kargs):
     
     # Redirect loggers
     # This is not working for all cases, see comments in runclaw.py
-    for logger_name in ['pyclaw.io','pyclaw.solution','plot','pyclaw.solver','f2py','data']:
+    for logger_name in ['pyclaw.io', 'pyclaw.solution', 'plot', 'pyclaw.solver',
+                        'f2py','data']:
         runclaw.replace_stream_handlers(logger_name,log_path,log_file_append=False)
 
     # Load in appropriate PyClaw version
@@ -37,7 +38,7 @@ def wave_family(num_cells,eigen_method,wave_family,dry_state=True,**kargs):
     # = Create Solver =
     # =================
     if kargs.get('solver_type','classic') == 'classic':
-        solver = pyclaw.ClawSolver1D()
+        solver = pyclaw.ClawSolver1D(riemann_solver=layered_shallow_water_1D)
     else:
         raise NotImplementedError('Classic is currently the only supported solver.')
         
@@ -47,7 +48,6 @@ def wave_family(num_cells,eigen_method,wave_family,dry_state=True,**kargs):
     solver.max_steps = 5000
     solver.fwave = True
     solver.kernel_language = 'Fortran'
-    solver.num_waves = 4
     solver.limiters = 3
     solver.source_split = 1
         
@@ -56,9 +56,6 @@ def wave_family(num_cells,eigen_method,wave_family,dry_state=True,**kargs):
     solver.bc_upper[0] = 1
     solver.aux_bc_lower[0] = 1
     solver.aux_bc_upper[0] = 1
-
-    # Set the Riemann solver
-    solver.rp = layered_shallow_water_1D
 
     # Set the before step functioning including the wind forcing
     solver.before_step = lambda solver,solution:ml.step.before_step(solver,solution)
@@ -72,16 +69,16 @@ def wave_family(num_cells,eigen_method,wave_family,dry_state=True,**kargs):
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension('x',0.0,1.0,num_cells)
+    x = pyclaw.Dimension(0.0, 1.0, num_cells)
     domain = pyclaw.Domain([x])
-    state = pyclaw.State(domain,2*num_layers,3+num_layers)
+    state = pyclaw.State(domain, 2 * num_layers, 3 + num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0
 
     # Set physics data
     state.problem_data['g'] = 9.8
     state.problem_data['manning'] = 0.0
     state.problem_data['rho_air'] = 1.15e-3
-    state.problem_data['rho'] = [0.95,1.0]
+    state.problem_data['rho'] = [0.95, 1.0]
     state.problem_data['r'] = state.problem_data['rho'][0] / state.problem_data['rho'][1]
     state.problem_data['one_minus_r'] = 1.0 - state.problem_data['r']
     state.problem_data['num_layers'] = num_layers
@@ -97,19 +94,21 @@ def wave_family(num_cells,eigen_method,wave_family,dry_state=True,**kargs):
     
     # Set aux arrays including bathymetry, wind field and linearized depths
     if dry_state:
-        ml.aux.set_jump_bathymetry(solution.state,0.5,[-1.0,-0.2])
+        ml.aux.set_jump_bathymetry(solution.state, 0.5, [-1.0, -0.2])
     else:
-        ml.aux.set_jump_bathymetry(solution.state,0.5,[-1.0,-1.0])
+        ml.aux.set_jump_bathymetry(solution.state, 0.5, [-1.0, -1.0])
     ml.aux.set_no_wind(solution.state)
-    ml.aux.set_h_hat(solution.state,0.5,[0.0,-0.6],[0.0,-0.6])
+    ml.aux.set_h_hat(solution.state, 0.5, [0.0, -0.6], [0.0, -0.6])
     
     # Set initial condition
     if wave_family == 3:
-        ml.qinit.set_wave_family_init_condition(solution.state,wave_family,0.45,0.1)
+        ml.qinit.set_wave_family_init_condition(solution.state, wave_family, 
+                                                    0.45, 0.1)
     elif wave_family == 4:
         # The perturbation must be less in this case otherwise the internal
         # wave will crest the bathymetry jump
-        ml.qinit.set_wave_family_init_condition(solution.state,wave_family,0.45,0.04)
+        ml.qinit.set_wave_family_init_condition(solution.state, wave_family, 
+                                                    0.45, 0.04)
 
     
     # ================================
