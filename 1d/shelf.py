@@ -21,7 +21,8 @@ def jump_shelf(num_cells,eigen_method,**kargs):
     
     # Redirect loggers
     # This is not working for all cases, see comments in runclaw.py
-    for logger_name in ['pyclaw.io','pyclaw.solution','plot','pyclaw.solver','f2py','data']:
+    for logger_name in ['pyclaw.io', 'pyclaw.solution', 'plot', 'pyclaw.solver',
+                        'f2py','data']:
         runclaw.replace_stream_handlers(logger_name,log_path,log_file_append=False)
 
     # Load in appropriate PyClaw version
@@ -34,7 +35,7 @@ def jump_shelf(num_cells,eigen_method,**kargs):
     # = Create Solver =
     # =================
     if kargs.get('solver_type','classic') == 'classic':
-        solver = pyclaw.ClawSolver1D()
+        solver = pyclaw.ClawSolver1D(riemann_solver=layered_shallow_water_1D)
     else:
         raise NotImplementedError('Classic is currently the only supported solver.')
         
@@ -44,7 +45,6 @@ def jump_shelf(num_cells,eigen_method,**kargs):
     solver.max_steps = 5000
     solver.fwave = True
     solver.kernel_language = 'Fortran'
-    solver.num_waves = 4
     solver.limiters = 3
     solver.source_split = 1
         
@@ -55,9 +55,6 @@ def jump_shelf(num_cells,eigen_method,**kargs):
     solver.user_bc_upper = ml.bc.wall_qbc_upper
     solver.aux_bc_lower[0] = 1
     solver.aux_bc_upper[0] = 1
-    
-    # Set the Riemann solver
-    solver.rp = layered_shallow_water_1D
 
     # Set the before step function
     solver.before_step = lambda solver,solution:ml.step.before_step(solver,
@@ -72,9 +69,9 @@ def jump_shelf(num_cells,eigen_method,**kargs):
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension('x',-400e3,0.0,num_cells)
+    x = pyclaw.Dimension(-400e3, 0.0, num_cells)
     domain = pyclaw.Domain([x])
-    state = pyclaw.State(domain,2*num_layers,3+num_layers)
+    state = pyclaw.State(domain, 2 * num_layers, 3 + num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0
 
     # Set physics data
@@ -96,12 +93,12 @@ def jump_shelf(num_cells,eigen_method,**kargs):
     solution.t = 0.0
     
     # Set aux arrays including bathymetry, wind field and linearized depths
-    ml.aux.set_jump_bathymetry(solution.state,-30e3,[-4000.0,-100.0])
+    ml.aux.set_jump_bathymetry(solution.state, -30e3, [-4000.0, -100.0])
     ml.aux.set_no_wind(solution.state)
-    ml.aux.set_h_hat(solution.state,0.5,[0.0,-300.0],[0.0,-300.0])
+    ml.aux.set_h_hat(solution.state, 0.5, [0.0, -300.0], [0.0, -300.0])
     
     # Set perturbation to sea at rest
-    ml.qinit.set_acta_numerica_init_condition(solution.state,0.4)
+    ml.qinit.set_acta_numerica_init_condition(solution.state, 0.4)
     
     
     # ================================
@@ -134,22 +131,22 @@ def jump_shelf(num_cells,eigen_method,**kargs):
                   "g":solution.state.problem_data['g'],
                   "dry_tolerance":solution.state.problem_data['dry_tolerance'],
                   "bathy_ref_lines":[-30e3]}
-    plot(setplot="./setplot_shelf.py",outdir=outdir,plotdir=plotdir,
-         htmlplot=kargs.get('htmlplot',False),iplot=kargs.get('iplot',False),
-         file_format=controller.output_format,**plot_kargs)
+    plot(setplot="./setplot_shelf.py", outdir=outdir, plotdir=plotdir,
+         htmlplot=kargs.get('htmlplot', False), iplot=kargs.get('iplot', False),
+         file_format=controller.output_format, **plot_kargs)
 
          
 def sloped_shelf(num_cells,eigen_method,**kargs):
     r"""Shelf test"""
 
     # Construct output and plot directory paths
-    prefix = 'ml_e%s_n%s' % (eigen_method,num_cells)
+    prefix = 'ml_e%s_n%s' % (eigen_method, num_cells)
     name = 'multilayer/sloped_shelf'
-    outdir,plotdir,log_path = runclaw.create_output_paths(name,prefix,**kargs)
+    outdir,plotdir,log_path = runclaw.create_output_paths(name, prefix, **kargs)
     
     # Redirect loggers
     # This is not working for all cases, see comments in runclaw.py
-    for logger_name in ['io','solution','plot','evolve','f2py','data']:
+    for logger_name in ['io', 'solution', 'plot', 'evolve', 'f2py', 'data']:
         runclaw.replace_stream_handlers(logger_name,log_path,log_file_append=False)
 
     # Load in appropriate PyClaw version
@@ -162,8 +159,8 @@ def sloped_shelf(num_cells,eigen_method,**kargs):
     # =================
     # = Create Solver =
     # =================
-    if kargs.get('solver_type','classic') == 'classic':
-        solver = pyclaw.ClawSolver1D()
+    if kargs.get('solver_type', 'classic') == 'classic':
+        solver = pyclaw.ClawSolver1D(riemann_solver=layered_shallow_water_1D)
     else:
         raise NotImplementedError('Classic is currently the only supported solver.')
         
@@ -189,7 +186,8 @@ def sloped_shelf(num_cells,eigen_method,**kargs):
     solver.rp = layered_shallow_water_1D
 
     # Set the before step function
-    solver.before_step = lambda solver,solution:ml.step.before_step(solver,solution)
+    solver.before_step = lambda solver, solution:ml.step.before_step(solver,
+                                                                     solution)
                                             
     # Use simple friction source term
     solver.step_source = ml.step.friction_source
@@ -200,16 +198,16 @@ def sloped_shelf(num_cells,eigen_method,**kargs):
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension('x',-400e3,0.0,num_cells)
+    x = pyclaw.Dimension(-400e3, 0.0, num_cells)
     domain = pyclaw.Domain([x])
-    state = pyclaw.State(domain,2*num_layers,3+num_layers)
+    state = pyclaw.State(domain, 2 * num_layers, 3 + num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0
 
     # Set physics data
     state.problem_data['g'] = 9.8
     state.problem_data['manning'] = 0.0
     state.problem_data['rho_air'] = 1.15
-    state.problem_data['rho'] = [1025.0,1045.0]
+    state.problem_data['rho'] = [1025.0, 1045.0]
     state.problem_data['r'] = state.problem_data['rho'][0] / state.problem_data['rho'][1]
     state.problem_data['one_minus_r'] = 1.0 - state.problem_data['r']
     state.problem_data['num_layers'] = num_layers
@@ -226,12 +224,12 @@ def sloped_shelf(num_cells,eigen_method,**kargs):
     # Set aux arrays including bathymetry, wind field and linearized depths
     x0 = -130e3
     x1 = -30e3
-    ml.aux.set_sloped_shelf_bathymetry(solution.state,x0,x1,-4000.0,-100.0)
+    ml.aux.set_sloped_shelf_bathymetry(solution.state, x0, x1, -4000.0, -100.0)
     ml.aux.set_no_wind(solution.state)
-    ml.aux.set_h_hat(solution.state,0.5,[0.0,-300.0],[0.0,-300.0])
+    ml.aux.set_h_hat(solution.state, 0.5, [0.0, -300.0], [0.0, -300.0])
     
     # Set perturbation to sea at rest
-    ml.qinit.set_acta_numerica_init_condition(solution.state,0.4)
+    ml.qinit.set_acta_numerica_init_condition(solution.state, 0.4)
     
     
     # ================================
