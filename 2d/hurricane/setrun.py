@@ -1,17 +1,25 @@
 #!/usr/bin/env python
 # encoding: utf-8
+from __future__ import absolute_import
+from __future__ import print_function
+
+#ensure# encoding: utf-8
 """
 Setup a run for a simple hurricane but with multiple layers.
 
 """
 
-import numpy as numpy
+import os
+import datetime
 
-import clawpack.clawutil.data as data
-import clawpack.geoclaw.multilayer.data as ml_data
-import clawpack.geoclaw.topotools as topotools
+import numpy
 
-# Ramp up constants
+import clawpack.geoclaw.data
+import clawpack.geoclaw.topotools as tt
+import clawpack.geoclaw.units as units
+from clawpack.geoclaw.surge.storm import Storm
+
+# Initial ramp up time
 RAMP_UP_TIME = 12 * 60**2
 
 #------------------------------
@@ -29,14 +37,12 @@ def setrun(claw_pkg='geoclaw'):
 
     """
 
+    from clawpack.clawutil import data
+
     assert claw_pkg.lower() == 'geoclaw',  "Expected claw_pkg = 'geoclaw'"
 
     num_dim = 2
     rundata = data.ClawRunData(claw_pkg, num_dim)
-
-    # Add multi-layer data object to rundata and set its attributes
-    rundata.add_data(ml_data.MultilayerData(), 'multilayer_data')
-    set_multilayer(rundata)
 
     #------------------------------------------------------------------
     # Standard Clawpack parameters to be written to claw.data:
@@ -77,14 +83,10 @@ def setrun(claw_pkg='geoclaw'):
     clawdata.num_eqn = 6
 
     # Number of auxiliary variables in the aux array (initialized in setaux)
-    clawdata.num_aux = 4 + rundata.multilayer_data.num_layers
-    if rundata.surge_data.storm_type > 0:
-        clawdata.num_aux += 3
+    clawdata.num_aux = 1 + rundata.multilayer_data.num_layers
 
     # Index of aux array corresponding to capacity function, if there is one:
     clawdata.capa_index = 0
-
-    
     
     # -------------
     # Initial time:
@@ -274,7 +276,7 @@ def setrun(claw_pkg='geoclaw'):
     amrdata = rundata.amrdata
 
     # max number of refinement levels:
-    amrdata.amr_levels_max = 1
+    amrdata.amr_levels_max = 3
 
     # List of refinement ratios at each level (length at least mxnest-1)
     amrdata.refinement_ratios_x = [2,6]
@@ -286,8 +288,8 @@ def setrun(claw_pkg='geoclaw'):
     # This must be a list of length maux, each element of which is one of:
     #   'center',  'capacity', 'xleft', or 'yleft'  (see documentation).
 
-    amrdata.aux_type = ['center', 'center', 'yleft', 'center', 'center', 
-                        'center', 'center', 'center', 'center', 'center']
+    amrdata.aux_type = ['center', 'center', 'center', 'center', 'center', 
+                        'center', 'center']
 
 
     # Flag using refinement routine flag2refine rather than richardson error
@@ -335,15 +337,17 @@ def setrun(claw_pkg='geoclaw'):
     # ---------------
     rundata.gaugedata.gauges = []
     # for gauges append lines of the form  [gaugeno, x, y, t1, t2]
-    num_gauges = 21
-    for n in xrange(0, num_gauges):
-        # Turn towards beach ~ 100 m water
-        x = 455e3 
-        # Start 25 km inside of primary domain
-        y = 550e3 / (num_gauges + 1) * (n + 1) + -275e3
-        rundata.gaugedata.gauges.append([n + 1, x, y, 0.0, 1e10])
+    # num_gauges = 21
+    # for n in xrange(0, num_gauges):
+    #     # Turn towards beach ~ 100 m water
+    #     x = 455e3 
+    #     # Start 25 km inside of primary domain
+    #     y = 550e3 / (num_gauges + 1) * (n + 1) + -275e3
+    #     rundata.gaugedata.gauges.append([n + 1, x, y, 0.0, 1e10])
 
-    # Set GeoClaw specific settings
+    #------------------------------------------------------------------
+    # GeoClaw specific parameters:
+    #------------------------------------------------------------------
     rundata = setgeo(rundata)
 
     return rundata
@@ -362,12 +366,26 @@ def setgeo(rundata):
     try:
         geo_data = rundata.geo_data
     except:
-        print "*** Error, this rundata has no geo_data attribute"
+        print("*** Error, this rundata has no geo_data attribute")
         raise AttributeError("Missing geo_data attribute")
-       
+
     # == Physics ==
     geo_data.gravity = 9.81
     geo_data.coordinate_system = 1
+    geo_data.earth_radius = 6367.5e3
+    geo_data.rho = 1025.0
+    geo_data.rho_air = 1.15
+    geo_data.ambient_pressure = 101.3e3
+
+    # == Forcing Options
+    geo_data.coriolis_forcing = False
+    geo_data.theta_0 = 25.0 # Beta-plane approximation center
+
+    # == Algorithm and Initial Conditions ==
+    geo_data.dry_tolerance = 1.e-3
+    geo_data.friction_forcing = True
+    geo_data.manning_coefficient = 0.025
+    geo_data.friction_depth = 1e6
 
     # == Forcing Options
     geo_data.coriolis_forcing = False
@@ -398,14 +416,67 @@ def setgeo(rundata):
     #   [topotype, minlevel,maxlevel,fname]
 
     # ======================
-    #  Storm Surge Settings
+    #  Other Settings
     # ======================
-
-    rundata.surge_data.storm_type = 1
+    set_storm(rundata)
+    # set_multilayer(rundata)
 
     return rundata
     # end of function setgeo
     # ----------------------
+
+
+def set_storm(rundata):    
+
+    data = rundata.surge_data
+
+    # Source term controls - These are currently not respected
+    data.wind_forcing = True
+    data.drag_law = 1
+    data.pressure_forcing = True
+
+    data.wind_index = 0
+    data.pressure_index = 0
+    
+    # Source term algorithm parameters
+    # data.wind_tolerance = 1e-4
+    # data.pressure_tolerance = 1e-4 # Pressure source term tolerance
+
+    # AMR parameters
+    data.wind_refine = [20.0,40.0,60.0] # m/s
+    data.R_refine = [60.0e3,40e3,20e3]  # m
+    
+    # Storm parameters
+    data.storm_type = 1 # Type of storm
+    data.display_landfall_time = True
+
+    # Storm type 1 - Idealized storm track
+    data.storm_file = os.path.expandvars(os.path.join(os.getcwd(),'fake.storm'))
+
+    # Construct storm
+    forward_velocity = units.convert(20, 'km/h', 'm/s')
+    theta = 0.0 * numpy.pi / 180.0 # degrees from horizontal to radians
+
+    my_storm = Storm()
+    
+    # Take seconds and time period of 30 minutes and turn them into datatimes
+    t_ref = datetime.datetime.now()
+    t_sec = numpy.arange(-RAMP_UP_TIME, rundata.clawdata.tfinal, 30 * 60)
+    my_storm.t = [t_ref + datetime.timedelta(seconds=t) for t in t_sec]
+
+    my_storm.time_offset = t_ref
+    my_storm.eye_location = numpy.empty((t_sec.shape[0], 2))
+    my_storm.eye_location[:, 0] = forward_velocity * t_sec * numpy.cos(theta)
+    my_storm.eye_location[:, 1] = forward_velocity * t_sec * numpy.sin(theta)
+    my_storm.max_wind_speed = [units.convert(54, 'knots', 'm/s')] * t_sec.shape[0]
+    my_storm.max_wind_radius = [units.convert(50, 'km', 'm')] * t_sec.shape[0]
+    my_storm.central_pressure = [units.convert(980, 'mbar', 'Pa')] * t_sec.shape[0]
+    my_storm.storm_radius = [units.convert(1000, 'km', 'm')] * t_sec.shape[0]
+
+    my_storm.write(data.storm_file, file_format="geoclaw")
+
+    return rundata
+
 
 
 def set_multilayer(rundata):
@@ -416,16 +487,14 @@ def set_multilayer(rundata):
 
     # Physics parameters
     data.num_layers = 2
-    data.rho = [1025.0, 0.0]
-    data.rho[1] = data.rho[0] / 0.95
-    data.eta = [0.0,-300.0]
+    data.eta = [0.0, -300.0]
     
     # Algorithm parameters
     data.eigen_method = 2
     data.inundation_method = 2
     data.richardson_tolerance = 0.95
     data.wave_tolerance = [0.1, 0.5]
-    data.dry_limit = True
+    data.layer_index = 1
 
     return rundata
 
@@ -433,7 +502,7 @@ def set_multilayer(rundata):
 def write_topo_file(run_data, out_file, **kwargs):
 
     # Make topography
-    topo = topotools.Topography()
+    topo = tt.Topography()
     topo.x = numpy.linspace(run_data.clawdata.lower[0], 
                             run_data.clawdata.upper[0], 
                             run_data.clawdata.num_cells[0] + 8)
@@ -453,7 +522,7 @@ def write_topo_file(run_data, out_file, **kwargs):
                     (run_data.clawdata.upper[0], 
                             beach_slope * (run_data.clawdata.upper[0] - x2) 
                             + shelf_depth)]
-    topo.topo_func = topotools.create_topo_func(topo_profile)
+    topo.topo_func = tt.create_topo_func(topo_profile)
     topo.write(out_file)
 
     return topo
@@ -470,6 +539,3 @@ if __name__ == '__main__':
     rundata.write()
 
     topo = write_topo_file(rundata, 'topo.tt2')
-    # topo.plot()
-    # import matplotlib.pyplot as plt
-    # plt.show()
