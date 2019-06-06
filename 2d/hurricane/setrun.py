@@ -19,8 +19,11 @@ import clawpack.geoclaw.topotools as tt
 import clawpack.geoclaw.units as units
 from clawpack.geoclaw.surge.storm import Storm
 
-# Initial ramp up time
+# Initial ramp up time for hurricane
 RAMP_UP_TIME = 12 * 60**2
+
+def days2seconds(days):
+    return days * 24 * 60**2
 
 #------------------------------
 def setrun(claw_pkg='geoclaw'):
@@ -71,9 +74,8 @@ def setrun(claw_pkg='geoclaw'):
 
 
     # Number of grid cells: Coarsest grid
-    levels = 3
-    clawdata.num_cells[0] = 70 * levels
-    clawdata.num_cells[1] = 60 * levels
+    clawdata.num_cells[0] = 70 
+    clawdata.num_cells[1] = 60
 
     # ---------------
     # Size of system:
@@ -83,7 +85,8 @@ def setrun(claw_pkg='geoclaw'):
     clawdata.num_eqn = 6
 
     # Number of auxiliary variables in the aux array (initialized in setaux)
-    clawdata.num_aux = 1 + rundata.multilayer_data.num_layers
+    # Includes bathy, wind(2), pressure, layer data
+    clawdata.num_aux = 1 + 3 + 2
 
     # Index of aux array corresponding to capacity function, if there is one:
     clawdata.capa_index = 0
@@ -114,13 +117,14 @@ def setrun(claw_pkg='geoclaw'):
     # The solution at initial time t0 is always written in addition.
 
     clawdata.output_style = 1
-    num_hours = 40
-    step = 0.25
 
     if clawdata.output_style==1:
         # Output nout frames at equally spaced times up to tfinal:
-        clawdata.num_output_times = int(num_hours / step) + int(numpy.ceil(RAMP_UP_TIME / (step * 60**2)))
-        clawdata.tfinal = num_hours * 60.0**2
+        clawdata.tfinal = days2seconds(3)
+        recurrence = 4
+        clawdata.num_output_times = int((clawdata.tfinal - clawdata.t0) *
+                                        recurrence / (60**2 * 24))
+
         clawdata.output_t0 = True  # output at initial (or restart) time?
 
     elif clawdata.output_style == 2:
@@ -373,36 +377,27 @@ def setgeo(rundata):
     geo_data.gravity = 9.81
     geo_data.coordinate_system = 1
     geo_data.earth_radius = 6367.5e3
-    geo_data.rho = 1025.0
+    geo_data.rho = [1025.0 * 0.9, 1025.0]
     geo_data.rho_air = 1.15
     geo_data.ambient_pressure = 101.3e3
 
     # == Forcing Options
-    geo_data.coriolis_forcing = False
+    geo_data.coriolis_forcing = True
     geo_data.theta_0 = 25.0 # Beta-plane approximation center
-
-    # == Algorithm and Initial Conditions ==
-    geo_data.dry_tolerance = 1.e-3
     geo_data.friction_forcing = True
-    geo_data.manning_coefficient = 0.025
-    geo_data.friction_depth = 1e6
-
-    # == Forcing Options
-    geo_data.coriolis_forcing = False
+    geo_data.friction_depth = 1e10
 
     # == Algorithm and Initial Conditions ==
     geo_data.sea_level = 0.0
     geo_data.dry_tolerance = 1.e-2
-    geo_data.friction_forcing = True
-    geo_data.manning_coefficient = 0.025
-    geo_data.friction_depth = 1e10
 
     # Refinement settings
-    refinement_data = rundata.refinement_data
-    refinement_data.variable_dt_refinement_ratios = True
-    refinement_data.wave_tolerance = 5e-1
-    refinement_data.deep_depth = 2e2
-    refinement_data.max_level_deep = 4
+    refine_data = rundata.refinement_data
+    refine_data.wave_tolerance = 1.0
+    refine_data.speed_tolerance = [1.0, 2.0, 3.0, 4.0]
+    refine_data.deep_depth = 300.0
+    refine_data.max_level_deep = 4
+    refine_data.variable_dt_refinement_ratios = True
 
     # == settopo.data values ==
     topo_data = rundata.topo_data
@@ -415,45 +410,31 @@ def setgeo(rundata):
     # for moving topography, append lines of the form :   (<= 1 allowed for now!)
     #   [topotype, minlevel,maxlevel,fname]
 
-    # ======================
-    #  Other Settings
-    # ======================
-    set_storm(rundata)
-    # set_multilayer(rundata)
-
-    return rundata
-    # end of function setgeo
-    # ----------------------
-
-
-def set_storm(rundata):    
-
+    # ================
+    #  Set Surge Data
+    # ================
     data = rundata.surge_data
 
-    # Source term controls - These are currently not respected
+    # Source term controls
     data.wind_forcing = True
     data.drag_law = 1
     data.pressure_forcing = True
 
-    data.wind_index = 0
-    data.pressure_index = 0
-    
-    # Source term algorithm parameters
-    # data.wind_tolerance = 1e-4
-    # data.pressure_tolerance = 1e-4 # Pressure source term tolerance
+    data.wind_index = 2
+    data.pressure_index = 4
 
-    # AMR parameters
-    data.wind_refine = [20.0,40.0,60.0] # m/s
-    data.R_refine = [60.0e3,40e3,20e3]  # m
-    
-    # Storm parameters
-    data.storm_type = 1 # Type of storm
     data.display_landfall_time = True
 
-    # Storm type 1 - Idealized storm track
-    data.storm_file = os.path.expandvars(os.path.join(os.getcwd(),'fake.storm'))
+    # AMR parameters, m/s and m respectively
+    data.wind_refine = [20.0, 40.0, 60.0]
+    data.R_refine = [60.0e3, 40e3, 20e3]
 
-    # Construct storm
+    # Storm parameters - Parameterized storm (Holland 1980)
+    data.storm_specification_type = 'holland80'  # (type 1)
+    data.storm_file = os.path.expandvars(os.path.join(os.getcwd(),
+                                         'fake.storm'))
+
+    # Contruct storm
     forward_velocity = units.convert(20, 'km/h', 'm/s')
     theta = 0.0 * numpy.pi / 180.0 # degrees from horizontal to radians
 
@@ -461,25 +442,26 @@ def set_storm(rundata):
     
     # Take seconds and time period of 30 minutes and turn them into datatimes
     t_ref = datetime.datetime.now()
-    t_sec = numpy.arange(-RAMP_UP_TIME, rundata.clawdata.tfinal, 30 * 60)
+    t_sec = numpy.arange(-RAMP_UP_TIME, rundata.clawdata.tfinal, 30.0 * 60.0)
     my_storm.t = [t_ref + datetime.timedelta(seconds=t) for t in t_sec]
+
+    ramp_func = lambda t: (t + (2 * RAMP_UP_TIME)) * (t < 0) / (2 * RAMP_UP_TIME) \
+                          + numpy.ones(t_sec.shape) * (t >= 0)
 
     my_storm.time_offset = t_ref
     my_storm.eye_location = numpy.empty((t_sec.shape[0], 2))
     my_storm.eye_location[:, 0] = forward_velocity * t_sec * numpy.cos(theta)
     my_storm.eye_location[:, 1] = forward_velocity * t_sec * numpy.sin(theta)
-    my_storm.max_wind_speed = [units.convert(54, 'knots', 'm/s')] * t_sec.shape[0]
-    my_storm.max_wind_radius = [units.convert(50, 'km', 'm')] * t_sec.shape[0]
-    my_storm.central_pressure = [units.convert(980, 'mbar', 'Pa')] * t_sec.shape[0]
-    my_storm.storm_radius = [units.convert(1000, 'km', 'm')] * t_sec.shape[0]
+    my_storm.max_wind_speed = units.convert(56, 'knots', 'm/s') * ramp_func(t_sec)
+    my_storm.central_pressure = units.convert(1024, "mbar", "Pa")  \
+                                - (units.convert(1024, "mbar", "Pa")  \
+                                   - units.convert(950, 'mbar', 'Pa'))  \
+                                       * ramp_func(t_sec)
+    my_storm.max_wind_radius = [units.convert(8, 'km', 'm')] * t_sec.shape[0]
+    my_storm.storm_radius = [units.convert(100, 'km', 'm')] * t_sec.shape[0]
 
     my_storm.write(data.storm_file, file_format="geoclaw")
-
-    return rundata
-
-
-
-def set_multilayer(rundata):
+    
     # ======================
     #  Multi-layer settings
     # ======================
@@ -494,9 +476,21 @@ def set_multilayer(rundata):
     data.inundation_method = 2
     data.richardson_tolerance = 0.95
     data.wave_tolerance = [0.1, 0.5]
-    data.layer_index = 1
+    data.layer_index = 4
+
+
+    # =======================
+    #  Set Variable Friction
+    # =======================
+    data = rundata.friction_data
+
+    # Variable friction
+    data.variable_friction = False
+    data.friction_index = 1
 
     return rundata
+    # end of function setgeo
+    # ----------------------
 
 
 def write_topo_file(run_data, out_file, **kwargs):
