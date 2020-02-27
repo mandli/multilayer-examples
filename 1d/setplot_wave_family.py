@@ -90,10 +90,8 @@ def setplot(plotdata,wave_family,rho,dry_tolerance):
     
     def jump_afteraxes(current_data):
         # Plot position of jump on plot
-        mpl.hold(True)
         mpl.plot([0.5,0.5],[-10.0,10.0],'k--')
         mpl.plot([0.0,1.0],[0.0,0.0],'k--')
-        mpl.hold(False)
         mpl.title('')
 
     plotdata.clearfigures()  # clear any old figures,axes,items data
@@ -146,7 +144,7 @@ def setplot(plotdata,wave_family,rho,dry_tolerance):
         
         # Remove ticks from top plot
         num_ticks = len(depth_axes.xaxis.get_ticklocs())
-        depth_axes.xaxis.set_ticklabels(["" for n in xrange(num_ticks)])
+        depth_axes.xaxis.set_ticklabels(["" for n in range(num_ticks)])
         
         # ax1.set_title('')
         depth_axes.set_title('Wave Family %s Perturbation at t = %3.2f' % (wave_family,cd.t))
@@ -212,7 +210,7 @@ def setplot(plotdata,wave_family,rho,dry_tolerance):
         
         # Remove ticks from top plot
         num_ticks = len(depth_axes.xaxis.get_ticklocs())
-        depth_axes.xaxis.set_ticklabels(["" for n in xrange(num_ticks)])
+        depth_axes.xaxis.set_ticklabels(["" for n in range(num_ticks)])
         
         # ax1.set_title('')
         depth_axes.set_title('Wave Family %s Perturbation at t = %3.2f' % (wave_family,cd.t))
