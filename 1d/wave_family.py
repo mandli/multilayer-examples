@@ -69,7 +69,7 @@ def wave_family(num_cells,eigen_method,wave_family,dry_state=True,**kargs):
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension(0.0, 1.0, num_cells)
+    x = pyclaw.Dimension(0.0, 1.0, num_cells, 'x')
     domain = pyclaw.Domain([x])
     state = pyclaw.State(domain, 2 * num_layers, 3 + num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0
