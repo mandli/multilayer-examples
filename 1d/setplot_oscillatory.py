@@ -126,7 +126,7 @@ def setplot(plotdata,xlower,xupper,rho,dry_tolerance):
         
         # Remove ticks from top plot
         locs,labels = mpl.xticks()
-        labels = ['' for i in xrange(len(locs))]
+        labels = ['' for i in range(len(locs))]
         mpl.xticks(locs,labels)
         
         depth_axes.set_title('Oscillatory Wind at t = %3.2f' % cd.t)
