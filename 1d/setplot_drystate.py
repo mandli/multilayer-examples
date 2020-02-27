@@ -135,7 +135,7 @@ def setplot(plotdata,rho,dry_tolerance):
         
         # Remove ticks from top plot
         locs,labels = mpl.xticks()
-        labels = ['' for i in xrange(len(locs))]
+        labels = ['' for i in range(len(locs))]
         mpl.xticks(locs,labels)
         
         # ax1.set_title('')

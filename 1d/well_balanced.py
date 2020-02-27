@@ -69,7 +69,7 @@ def smooth_test(eigen_method, dry=False, **kargs):
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension(0.0, 10.0, 200)
+    x = pyclaw.Dimension(0.0, 10.0, 200, 'x')
     domain = pyclaw.Domain([x])
     state = pyclaw.State(domain, 2 * num_layers, 3 + num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0
@@ -193,7 +193,7 @@ def jump_test(eigen_method, dry=False, **kargs):
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension(0.0,10.0,200)
+    x = pyclaw.Dimension(0.0, 10.0, 200, 'x')
     domain = pyclaw.Domain([x])
     state = pyclaw.State(domain, 2 * num_layers, 3 + num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0

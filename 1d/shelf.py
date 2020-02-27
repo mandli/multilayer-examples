@@ -69,7 +69,7 @@ def jump_shelf(num_cells,eigen_method,**kargs):
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension(-400e3, 0.0, num_cells)
+    x = pyclaw.Dimension(-400e3, 0.0, num_cells, 'x')
     domain = pyclaw.Domain([x])
     state = pyclaw.State(domain, 2 * num_layers, 3 + num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0
@@ -198,7 +198,7 @@ def sloped_shelf(num_cells,eigen_method,**kargs):
     # ============================
     num_layers = 2
     
-    x = pyclaw.Dimension(-400e3, 0.0, num_cells)
+    x = pyclaw.Dimension(-400e3, 0.0, num_cells, 'x')
     domain = pyclaw.Domain([x])
     state = pyclaw.State(domain, 2 * num_layers, 3 + num_layers)
     state.aux[ml.aux.kappa_index,:] = 0.0

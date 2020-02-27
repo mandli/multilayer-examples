@@ -92,10 +92,8 @@ def setplot(plotdata,rho,dry_tolerance):
     
     def jump_afteraxes(current_data):
         # Plot position of jump on plot
-        mpl.hold(True)
         mpl.plot([0.5,0.5],[-10.0,10.0],'k--')
         mpl.plot([0.0,1.0],[0.0,0.0],'k--')
-        mpl.hold(False)
         mpl.title('')
 
     plotdata.clearfigures()  # clear any old figures,axes,items data
@@ -184,4 +182,5 @@ def setplot(plotdata,rho,dry_tolerance):
 
     return plotdata
 
+    
     
