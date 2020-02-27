@@ -100,11 +100,9 @@ def setplot(plotdata,eta=[0.0,-300.0],rho=[1025.0,1045.0],g=9.81,dry_tolerance=1
     def add_bathy_dashes(current_data):
         for ref_line in bathy_ref_lines:
             mpl.plot([ref_line,ref_line],[-10,10],'k--')
-        mpl.close()
         
     def add_horizontal_dashes(current_data):
         mpl.plot([-400e3,0.0],[0.0,0.0],'k--')
-        mpl.close()
 
     def km_labels(current_data):
         r"""Flips xaxis and labels with km"""
